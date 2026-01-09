@@ -48,7 +48,8 @@ app.post('/api/room/create', (req, res) => {
       parkingMoney: 0,
       passRights: []
     },
-    actionLog: [], // Tüm işlemlerin geçmişi
+    actionLog: [],
+    redoLog: [], // Redo için log
     createdAt: Date.now()
   };
   console.log(`✅ Yeni masa oluşturuldu: ${roomId}`);
@@ -104,6 +105,7 @@ app.post('/api/room/:roomId/reset', (req, res) => {
     passRights: []
   };
   room.actionLog = [];
+  room.redoLog = [];
   
   // Tüm oyunculara sıfırlama bilgisini gönder
   io.to(roomId).emit('gameReset', { gameState: room.gameState });
@@ -123,7 +125,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Aynı isimde oyuncu var mı kontrol et
     const existingPlayer = rooms[roomId].players.find(p => p.name === playerName);
     if (existingPlayer) {
       socket.emit('error', { message: 'Bu isimde bir oyuncu zaten var' });
@@ -141,15 +142,14 @@ io.on('connection', (socket) => {
     socket.roomId = roomId;
     socket.playerName = playerName;
 
-    // Tüm oyunculara yeni katılımı bildir
     io.to(roomId).emit('playerJoined', {
       player,
       players: rooms[roomId].players
     });
 
-    // Mevcut oyun durumunu ve log'ları gönder
     socket.emit('gameStateUpdated', rooms[roomId].gameState);
     socket.emit('actionLogUpdated', rooms[roomId].actionLog);
+    socket.emit('redoLogUpdated', rooms[roomId].redoLog);
 
     console.log(`👤 ${playerName} masaya katıldı: ${roomId} (${rooms[roomId].players.length} oyuncu)`);
   });
@@ -172,11 +172,13 @@ io.on('connection', (socket) => {
         };
         rooms[roomId].actionLog.push(logEntry);
         
-        // Log'u tüm oyunculara gönder
+        // Yeni action yapıldığında redo log'u temizle
+        rooms[roomId].redoLog = [];
+        
         io.to(roomId).emit('actionLogUpdated', rooms[roomId].actionLog);
+        io.to(roomId).emit('redoLogUpdated', rooms[roomId].redoLog);
       }
       
-      // Kendisi hariç tüm oyunculara gönder
       socket.to(roomId).emit('gameStateUpdated', gameState);
       console.log(`🎮 Oyun durumu güncellendi: ${roomId}`);
     }
@@ -187,16 +189,40 @@ io.on('connection', (socket) => {
     if (rooms[roomId] && rooms[roomId].actionLog.length > 0) {
       const lastAction = rooms[roomId].actionLog.pop();
       
+      // Action'ı redo log'a ekle
+      rooms[roomId].redoLog.push(lastAction);
+      
       // Önceki durumu geri yükle
       if (lastAction.previousState) {
         rooms[roomId].gameState = lastAction.previousState;
         
-        // Tüm oyunculara güncellemeyi gönder
         io.to(roomId).emit('gameStateUpdated', rooms[roomId].gameState);
         io.to(roomId).emit('actionLogUpdated', rooms[roomId].actionLog);
+        io.to(roomId).emit('redoLogUpdated', rooms[roomId].redoLog);
         
         console.log(`↩️ İşlem geri alındı: ${lastAction.description}`);
       }
+    }
+  });
+
+  // İleri alma (Redo)
+  socket.on('redoAction', ({ roomId }) => {
+    if (rooms[roomId] && rooms[roomId].redoLog.length > 0) {
+      const lastRedo = rooms[roomId].redoLog.pop();
+      
+      // Redo'yu tekrar action log'a ekle
+      rooms[roomId].actionLog.push(lastRedo);
+      
+      // Redo state'ini uygula
+      if (lastRedo.data && lastRedo.data.newState) {
+        rooms[roomId].gameState = lastRedo.data.newState;
+      }
+      
+      io.to(roomId).emit('gameStateUpdated', rooms[roomId].gameState);
+      io.to(roomId).emit('actionLogUpdated', rooms[roomId].actionLog);
+      io.to(roomId).emit('redoLogUpdated', rooms[roomId].redoLog);
+      
+      console.log(`↪️ İşlem ileri alındı: ${lastRedo.description}`);
     }
   });
 
@@ -285,7 +311,7 @@ io.on('connection', (socket) => {
       
       if (rooms[roomId].players.length === 0) {
         delete rooms[roomId];
-        console.log(`🗑️  Masa silindi: ${roomId}`);
+        console.log(`��️  Masa silindi: ${roomId}`);
       }
     }
   });

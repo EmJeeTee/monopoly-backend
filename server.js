@@ -360,6 +360,27 @@ io.on('connection', (socket) => {
     console.log(`❌ Takas reddedildi: ${tradeOffer.fromPlayerName} → ${tradeOffer.toPlayerName}`);
   });
 
+
+  // Ping - Online status heartbeat
+  socket.on('ping', ({ roomId }) => {
+    if (rooms[roomId]) {
+      // Update lastSeen for this player
+      const player = rooms[roomId].players.find(p => p.name === socket.playerName)
+      if (player) {
+        player.lastSeen = Date.now()
+      }
+      
+      // Calculate online statuses (last seen < 10 seconds = online)
+      const now = Date.now()
+      const playerStatuses = {}
+      rooms[roomId].players.forEach(p => {
+        playerStatuses[p.name] = (now - (p.lastSeen || p.joinedAt)) < 10000
+      })
+      
+      // Broadcast status to all players in room
+      io.to(roomId).emit('statusUpdate', { playerStatuses })
+    }
+  })
     // Bağlantı kopunca
   socket.on('disconnect', () => {
     const roomId = socket.roomId;

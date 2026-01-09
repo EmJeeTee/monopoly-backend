@@ -23,7 +23,7 @@ const io = new Server(httpServer, {
   }
 });
 
-// In-memory storage (başlangıç için)
+// In-memory storage
 const rooms = {};
 const pendingActions = {};
 
@@ -42,7 +42,13 @@ app.post('/api/room/create', (req, res) => {
   rooms[roomId] = {
     id: roomId,
     players: [],
-    gameState: null,
+    gameState: {
+      players: {},
+      nextId: 1,
+      parkingMoney: 0,
+      passRights: []
+    },
+    actionLog: [], // Tüm işlemlerin geçmişi
     createdAt: Date.now()
   };
   console.log(`✅ Yeni masa oluşturuldu: ${roomId}`);
@@ -64,6 +70,46 @@ app.get('/api/room/:roomId', (req, res) => {
     players: room.players.map(p => ({ name: p.name, id: p.id })),
     createdAt: room.createdAt
   });
+});
+
+// Oyun durumu ve log'ları getir
+app.get('/api/room/:roomId/state', (req, res) => {
+  const { roomId } = req.params;
+  const room = rooms[roomId];
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Masa bulunamadı' });
+  }
+  
+  res.json({
+    gameState: room.gameState,
+    actionLog: room.actionLog
+  });
+});
+
+// Masayı sıfırla
+app.post('/api/room/:roomId/reset', (req, res) => {
+  const { roomId } = req.params;
+  const room = rooms[roomId];
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Masa bulunamadı' });
+  }
+  
+  // Oyun durumunu sıfırla
+  room.gameState = {
+    players: {},
+    nextId: 1,
+    parkingMoney: 0,
+    passRights: []
+  };
+  room.actionLog = [];
+  
+  // Tüm oyunculara sıfırlama bilgisini gönder
+  io.to(roomId).emit('gameReset', { gameState: room.gameState });
+  
+  console.log(`🔄 Masa sıfırlandı: ${roomId}`);
+  res.json({ success: true, gameState: room.gameState });
 });
 
 // Socket bağlantıları
@@ -101,25 +147,60 @@ io.on('connection', (socket) => {
       players: rooms[roomId].players
     });
 
-    // Mevcut oyun durumunu gönder
-    if (rooms[roomId].gameState) {
-      socket.emit('gameStateUpdated', rooms[roomId].gameState);
-    }
+    // Mevcut oyun durumunu ve log'ları gönder
+    socket.emit('gameStateUpdated', rooms[roomId].gameState);
+    socket.emit('actionLogUpdated', rooms[roomId].actionLog);
 
     console.log(`👤 ${playerName} masaya katıldı: ${roomId} (${rooms[roomId].players.length} oyuncu)`);
   });
 
   // Oyun durumu güncelleme
-  socket.on('updateGameState', ({ roomId, gameState }) => {
+  socket.on('updateGameState', ({ roomId, gameState, action }) => {
     if (rooms[roomId]) {
       rooms[roomId].gameState = gameState;
+      
+      // Action varsa log'a ekle
+      if (action) {
+        const logEntry = {
+          id: Date.now(),
+          timestamp: Date.now(),
+          action: action.type,
+          description: action.description,
+          playerName: socket.playerName,
+          data: action.data,
+          previousState: action.previousState
+        };
+        rooms[roomId].actionLog.push(logEntry);
+        
+        // Log'u tüm oyunculara gönder
+        io.to(roomId).emit('actionLogUpdated', rooms[roomId].actionLog);
+      }
+      
       // Kendisi hariç tüm oyunculara gönder
       socket.to(roomId).emit('gameStateUpdated', gameState);
       console.log(`🎮 Oyun durumu güncellendi: ${roomId}`);
     }
   });
 
-  // İşlem onayı isteme (para ekleme/çıkarma, vb.)
+  // Geri alma (Undo)
+  socket.on('undoAction', ({ roomId }) => {
+    if (rooms[roomId] && rooms[roomId].actionLog.length > 0) {
+      const lastAction = rooms[roomId].actionLog.pop();
+      
+      // Önceki durumu geri yükle
+      if (lastAction.previousState) {
+        rooms[roomId].gameState = lastAction.previousState;
+        
+        // Tüm oyunculara güncellemeyi gönder
+        io.to(roomId).emit('gameStateUpdated', rooms[roomId].gameState);
+        io.to(roomId).emit('actionLogUpdated', rooms[roomId].actionLog);
+        
+        console.log(`↩️ İşlem geri alındı: ${lastAction.description}`);
+      }
+    }
+  });
+
+  // İşlem onayı isteme
   socket.on('requestApproval', ({ roomId, action }) => {
     const approvalId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
@@ -133,7 +214,6 @@ io.on('connection', (socket) => {
       createdAt: Date.now()
     };
 
-    // Tüm oyunculara (kendisi dahil) onay isteğini gönder
     io.to(roomId).emit('approvalRequest', {
       approvalId,
       action: pendingActions[approvalId]
@@ -150,7 +230,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Zaten oy kullanmış mı kontrol et
     const alreadyVoted = action.approvals.includes(socket.id) || action.rejections.includes(socket.id);
     if (alreadyVoted) {
       return;
@@ -164,7 +243,6 @@ io.on('connection', (socket) => {
       console.log(`❌ ${voterName} reddetti: ${approvalId}`);
     }
 
-    // En az 1 onay varsa işlemi onayla
     if (action.approvals.length >= 1) {
       io.to(action.roomId).emit('actionApproved', {
         approvalId,
@@ -173,7 +251,6 @@ io.on('connection', (socket) => {
       console.log(`🎉 İşlem onaylandı: ${action.type}`);
       delete pendingActions[approvalId];
     } 
-    // 2 veya daha fazla red varsa reddet
     else if (action.rejections.length >= 2) {
       io.to(action.roomId).emit('actionRejected', {
         approvalId,
@@ -182,7 +259,6 @@ io.on('connection', (socket) => {
       console.log(`🚫 İşlem reddedildi: ${action.type}`);
       delete pendingActions[approvalId];
     }
-    // Aksi halde beklemede tut ve güncel durumu gönder
     else {
       io.to(action.roomId).emit('approvalUpdated', {
         approvalId,
@@ -207,7 +283,6 @@ io.on('connection', (socket) => {
       
       console.log(`👋 ${playerName || socket.id} masadan ayrıldı: ${roomId} (${rooms[roomId].players.length} oyuncu)`);
       
-      // Masa boşaldıysa sil
       if (rooms[roomId].players.length === 0) {
         delete rooms[roomId];
         console.log(`🗑️  Masa silindi: ${roomId}`);
@@ -216,16 +291,14 @@ io.on('connection', (socket) => {
   });
 });
 
-// Yardımcı fonksiyon - Benzersiz masa ID oluştur
 function generateRoomId() {
   let id;
   do {
     id = Math.random().toString(36).substring(2, 8).toUpperCase();
-  } while (rooms[id]); // ID çakışması varsa yeni üret
+  } while (rooms[id]);
   return id;
 }
 
-// Temizlik - 24 saatten eski boş masaları sil
 setInterval(() => {
   const now = Date.now();
   const oneDayMs = 24 * 60 * 60 * 1000;
@@ -237,7 +310,7 @@ setInterval(() => {
       console.log(`🧹 Eski masa temizlendi: ${roomId}`);
     }
   });
-}, 60 * 60 * 1000); // Her saat kontrol et
+}, 60 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {

@@ -9,7 +9,7 @@ const httpServer = createServer(app);
 
 // CORS ayarları
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: true,
   credentials: true
 }));
 app.use(express.json());
@@ -17,7 +17,7 @@ app.use(express.json());
 // Socket.io kurulumu
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST']
   }

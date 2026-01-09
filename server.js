@@ -125,33 +125,36 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Aynı isimde oyuncu varsa güncelle (reconnect durumu)
     const existingPlayer = rooms[roomId].players.find(p => p.name === playerName);
     if (existingPlayer) {
-      socket.emit('error', { message: 'Bu isimde bir oyuncu zaten var' });
-      return;
+      console.log(`🔄 ${playerName} yeniden bağlanıyor (eski: ${existingPlayer.id}, yeni: ${socket.id})`);
+      existingPlayer.id = socket.id; // Socket ID'yi güncelle
+      existingPlayer.joinedAt = Date.now(); // Son katılma zamanını güncelle
+    } else {
+      // Yeni oyuncu ekle
+      const player = {
+        id: socket.id,
+        name: playerName,
+        joinedAt: Date.now()
+      };
+      rooms[roomId].players.push(player);
+      
+      io.to(roomId).emit('playerJoined', {
+        player,
+        players: rooms[roomId].players
+      });
+      console.log(`👤 ${playerName} masaya katıldı: ${roomId} (${rooms[roomId].players.length} oyuncu)`);
     }
 
-    const player = {
-      id: socket.id,
-      name: playerName,
-      joinedAt: Date.now()
-    };
-
-    rooms[roomId].players.push(player);
     socket.join(roomId);
     socket.roomId = roomId;
     socket.playerName = playerName;
 
-    io.to(roomId).emit('playerJoined', {
-      player,
-      players: rooms[roomId].players
-    });
-
+    // Mevcut oyun durumunu gönder
     socket.emit('gameStateUpdated', rooms[roomId].gameState);
     socket.emit('actionLogUpdated', rooms[roomId].actionLog);
     socket.emit('redoLogUpdated', rooms[roomId].redoLog);
-
-    console.log(`👤 ${playerName} masaya katıldı: ${roomId} (${rooms[roomId].players.length} oyuncu)`);
   });
 
   // Oyun durumu güncelleme

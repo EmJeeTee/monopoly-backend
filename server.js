@@ -170,7 +170,10 @@ io.on('connection', (socket) => {
           action: action.type,
           description: action.description,
           playerName: socket.playerName,
-          data: action.data,
+          data: {
+            ...action.data,
+            newState: gameState // Redo için yeni state'i kaydet
+          },
           previousState: action.previousState
         };
         rooms[roomId].actionLog.push(logEntry);

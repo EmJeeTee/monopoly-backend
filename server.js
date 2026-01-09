@@ -125,6 +125,11 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Önce room'a join ol (playerJoined event'ini alabilmesi için)
+    socket.join(roomId);
+    socket.roomId = roomId;
+    socket.playerName = playerName;
+
     // Aynı isimde oyuncu varsa güncelle (reconnect durumu)
     const existingPlayer = rooms[roomId].players.find(p => p.name === playerName);
     if (existingPlayer) {
@@ -139,17 +144,14 @@ io.on('connection', (socket) => {
         joinedAt: Date.now()
       };
       rooms[roomId].players.push(player);
-      
-      io.to(roomId).emit('playerJoined', {
-        player,
-        players: rooms[roomId].players
-      });
       console.log(`👤 ${playerName} masaya katıldı: ${roomId} (${rooms[roomId].players.length} oyuncu)`);
     }
 
-    socket.join(roomId);
-    socket.roomId = roomId;
-    socket.playerName = playerName;
+    // playerJoined event'ini tüm odaya gönder (kendisi dahil)
+    io.to(roomId).emit('playerJoined', {
+      player: { id: socket.id, name: playerName, joinedAt: Date.now() },
+      players: rooms[roomId].players
+    });
 
     // Mevcut oyun durumunu gönder
     socket.emit('gameStateUpdated', rooms[roomId].gameState);

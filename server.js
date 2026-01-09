@@ -300,7 +300,65 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Bağlantı kopunca
+  // Takas teklifi gönder
+  socket.on('sendTradeOffer', ({ roomId, tradeOffer }) => {
+    if (!rooms[roomId]) {
+      socket.emit('error', { message: 'Masa bulunamadı' });
+      return;
+    }
+
+    // Karşı oyuncunun socket ID'sini bul - player ID değil socket ID kullan
+    const toPlayer = rooms[roomId].players.find(p => p.id === tradeOffer.toPlayerId);
+    if (!toPlayer) {
+      socket.emit('error', { message: 'Oyuncu bulunamadı' });
+      return;
+    }
+
+    // Takas teklifini karşı tarafa gönder - socket.id kullan
+    io.to(toPlayer.id).emit('tradeOfferReceived', { tradeOffer });
+    
+    console.log(`🔄 Takas teklifi: ${tradeOffer.fromPlayerName} → ${tradeOffer.toPlayerName}`);
+  });
+
+  // Takas kabul et
+  socket.on('acceptTrade', ({ roomId, tradeOffer }) => {
+    if (!rooms[roomId]) {
+      socket.emit('error', { message: 'Masa bulunamadı' });
+      return;
+    }
+
+    // Her iki oyuncuya da takas kabul edildi bildirimi gönder
+    const tradeData = {
+      player1Id: tradeOffer.fromPlayerId,
+      player2Id: tradeOffer.toPlayerId,
+      player1Gives: tradeOffer.player1Gives,
+      player2Gives: tradeOffer.player2Gives
+    };
+    
+    io.to(roomId).emit('tradeAccepted', { tradeData });
+    
+    console.log(`✅ Takas kabul edildi: ${tradeOffer.fromPlayerName} ↔ ${tradeOffer.toPlayerName}`);
+  });
+
+  // Takas reddet
+  socket.on('rejectTrade', ({ roomId, tradeOffer }) => {
+    if (!rooms[roomId]) {
+      socket.emit('error', { message: 'Masa bulunamadı' });
+      return;
+    }
+
+    // Takas teklifini yapan kişiye red bildirimi gönder
+    const fromPlayer = rooms[roomId].players.find(p => p.id === tradeOffer.fromPlayerId);
+    if (fromPlayer) {
+      io.to(fromPlayer.id).emit('tradeRejected', { 
+        fromPlayerName: tradeOffer.toPlayerName 
+      });
+    }
+    
+    console.log(`❌ Takas reddedildi: ${tradeOffer.fromPlayerName} → ${tradeOffer.toPlayerName}`);
+  });
+
+    // Bağlantı kopunca
   socket.on('disconnect', () => {
     const roomId = socket.roomId;
     if (roomId && rooms[roomId]) {

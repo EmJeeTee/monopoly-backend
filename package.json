@@ -1,0 +1,22 @@
+{
+  "name": "monopoly-backend",
+  "version": "1.0.0",
+  "description": "Monopoly Bank Simulation Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["monopoly", "game", "socket.io"],
+  "author": "EmJeeTee",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  }
+}

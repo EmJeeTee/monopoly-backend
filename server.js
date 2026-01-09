@@ -168,6 +168,7 @@ io.on('connection', (socket) => {
           id: Date.now(),
           timestamp: Date.now(),
           action: action.type,
+          type: action.type,
           description: action.description,
           playerName: socket.playerName,
           data: {

@@ -301,15 +301,16 @@ io.on('connection', (socket) => {
   });
 
   // Takas teklifi gönder
-  socket.on('sendTradeOffer', ({ roomId, tradeOffer }) => {
+  socket.on('sendTradeOffer', ({ roomId, tradeOffer, toPlayerName }) => {
     if (!rooms[roomId]) {
       socket.emit('error', { message: 'Masa bulunamadı' });
       return;
     }
 
-    // Karşı oyuncunun socket ID'sini bul - player ID değil socket ID kullan
-    const toPlayer = rooms[roomId].players.find(p => p.id === tradeOffer.toPlayerId);
+    // Karşı oyuncunun socket ID'sini player name ile bul
+    const toPlayer = rooms[roomId].players.find(p => p.name === toPlayerName);
     if (!toPlayer) {
+      console.log('Oyuncu bulunamadı:', toPlayerName, 'Mevcut oyuncular:', rooms[roomId].players.map(p => p.name));
       socket.emit('error', { message: 'Oyuncu bulunamadı' });
       return;
     }

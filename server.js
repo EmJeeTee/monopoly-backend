@@ -205,8 +205,16 @@ io.on('connection', (socket) => {
       const currentPlayers = currentState.players || {};
       const incomingPlayers = gameState.players || {};
       
-      // Merge players: keep all backend players, update with frontend changes
-      const mergedPlayers = { ...currentPlayers, ...incomingPlayers };
+      // Merge players: Keep ALL backend players, only update players from frontend
+      // This prevents losing other players when one player sends an update
+      const mergedPlayers = { ...currentPlayers };
+      
+      // Only update players that exist in incoming state (don't replace entire players object)
+      Object.keys(incomingPlayers).forEach(playerId => {
+        mergedPlayers[playerId] = incomingPlayers[playerId];
+      });
+      
+      console.log(`🔄 Merge: Backend had ${Object.keys(currentPlayers).length} players, frontend sent ${Object.keys(incomingPlayers).length}, result: ${Object.keys(mergedPlayers).length}`);
       
       rooms[roomId].gameState = {
         ...gameState,

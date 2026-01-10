@@ -195,60 +195,71 @@ io.on('connection', (socket) => {
     socket.emit('redoLogUpdated', rooms[roomId].redoLog);
   });
 
-  // Oyun durumu güncelleme
-  socket.on('updateGameState', ({ roomId, gameState, action }) => {
-    if (rooms[roomId]) {
-      // Preserve nextId when updating game state
-      // Merge gameState while preserving backend-managed fields
-      const currentState = rooms[roomId].gameState;
-      const currentNextId = currentState.nextId;
-      const currentPlayers = currentState.players || {};
-      const incomingPlayers = gameState.players || {};
-      
-      // Merge players: Keep ALL backend players, only update players from frontend
-      // This prevents losing other players when one player sends an update
-      const mergedPlayers = { ...currentPlayers };
-      
-      // Only update players that exist in incoming state (don't replace entire players object)
-      Object.keys(incomingPlayers).forEach(playerId => {
-        mergedPlayers[playerId] = incomingPlayers[playerId];
-      });
-      
-      console.log(`🔄 Merge: Backend had ${Object.keys(currentPlayers).length} players, frontend sent ${Object.keys(incomingPlayers).length}, result: ${Object.keys(mergedPlayers).length}`);
-      
-      rooms[roomId].gameState = {
-        ...gameState,
-        players: mergedPlayers,
-        nextId: Math.max(gameState.nextId || 1, currentNextId || 1)
-      };
-      
-      // Action varsa log'a ekle
-      if (action) {
-        const logEntry = {
-          id: Date.now(),
-          timestamp: Date.now(),
-          action: action.type,
-          type: action.type,
-          description: action.description,
-          playerName: socket.playerName,
-          data: {
-            ...action.data,
-            newState: gameState // Redo için yeni state'i kaydet
-          },
-          previousState: action.previousState
-        };
-        rooms[roomId].actionLog.push(logEntry);
-        
-        // Yeni action yapıldığında redo log'u temizle
-        rooms[roomId].redoLog = [];
-        
-        io.to(roomId).emit('actionLogUpdated', rooms[roomId].actionLog);
-        io.to(roomId).emit('redoLogUpdated', rooms[roomId].redoLog);
+  // Yeni: Sadece action ile state güncelle
+  socket.on('gameAction', ({ roomId, action }) => {
+    if (!rooms[roomId]) return;
+    const room = rooms[roomId];
+    const prevState = JSON.parse(JSON.stringify(room.gameState));
+
+    // Action türüne göre state güncelle
+    // Burada action.type'a göre işlemler eklenmeli
+    switch (action.type) {
+      case 'ADD_MONEY': {
+        const { playerId, amount } = action.data;
+        if (room.gameState.players[playerId]) {
+          Object.keys(amount).forEach(moneyKey => {
+            room.gameState.players[playerId].money[moneyKey] =
+              (room.gameState.players[playerId].money[moneyKey] || 0) + (amount[moneyKey] || 0);
+          });
+        }
+        break;
       }
-      
-      io.to(roomId).emit('gameStateUpdated', gameState);
-      console.log(`🎮 Oyun durumu güncellendi: ${roomId}`);
+      case 'REMOVE_MONEY': {
+        const { playerId, amount } = action.data;
+        if (room.gameState.players[playerId]) {
+          Object.keys(amount).forEach(moneyKey => {
+            room.gameState.players[playerId].money[moneyKey] =
+              (room.gameState.players[playerId].money[moneyKey] || 0) - (amount[moneyKey] || 0);
+          });
+        }
+        break;
+      }
+      case 'TRANSFER_PROPERTY': {
+        const { fromPlayerId, toPlayerId, propertyId } = action.data;
+        if (room.gameState.players[fromPlayerId] && room.gameState.players[toPlayerId]) {
+          // Remove from old owner
+          room.gameState.players[fromPlayerId].properties =
+            (room.gameState.players[fromPlayerId].properties || []).filter(pid => pid !== propertyId);
+          // Add to new owner
+          room.gameState.players[toPlayerId].properties =
+            [...(room.gameState.players[toPlayerId].properties || []), propertyId];
+        }
+        break;
+      }
+      // Diğer action türleri buraya eklenebilir
+      default:
+        console.log('Bilinmeyen action:', action.type);
     }
+
+    // Action log'a ekle
+    const logEntry = {
+      id: Date.now(),
+      timestamp: Date.now(),
+      action: action.type,
+      type: action.type,
+      description: action.description,
+      playerName: socket.playerName,
+      data: action.data,
+      previousState: prevState
+    };
+    room.actionLog.push(logEntry);
+    room.redoLog = [];
+
+    // Herkese yeni state ve actionLog'u gönder
+    io.to(roomId).emit('gameStateUpdated', room.gameState);
+    io.to(roomId).emit('actionLogUpdated', room.actionLog);
+    io.to(roomId).emit('redoLogUpdated', room.redoLog);
+    console.log(`🎮 [gameAction] Oyun durumu güncellendi: ${roomId} (${action.type})`);
   });
 
   // Geri alma (Undo)

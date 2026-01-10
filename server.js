@@ -170,8 +170,8 @@ io.on('connection', (socket) => {
           },
           properties: []
         };
-        gameState.players = gameState.players || {};
-        gameState.players[newPlayerId] = newGamePlayer;
+        // Mevcut oyuncuları koru, sadece yeni oyuncuyu ekle
+        gameState.players = { ...gameState.players, [newPlayerId]: newGamePlayer };
         gameState.nextId = newPlayerId + 1;
         console.log(`🎮 ${playerName} oyuna eklendi (ID: ${newPlayerId})`);
       }

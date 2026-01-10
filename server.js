@@ -137,7 +137,7 @@ io.on('connection', (socket) => {
       existingPlayer.id = socket.id; // Socket ID'yi güncelle
       existingPlayer.joinedAt = Date.now(); // Son katılma zamanını güncelle
     } else {
-      // Yeni oyuncu ekle
+      // Yeni oyuncu ekle (lobby'ye)
       const player = {
         id: socket.id,
         name: playerName,
@@ -145,6 +145,38 @@ io.on('connection', (socket) => {
       };
       rooms[roomId].players.push(player);
       console.log(`👤 ${playerName} masaya katıldı: ${roomId} (${rooms[roomId].players.length} oyuncu)`);
+      
+      // Game state'e de ekle (otomatik)
+      const gameState = rooms[roomId].gameState;
+      const gamePlayerExists = Object.values(gameState.players || {}).some(p => p.name === playerName);
+      
+      if (!gamePlayerExists) {
+        const newPlayerId = gameState.nextId || 1;
+        const newGamePlayer = {
+          id: newPlayerId,
+          name: playerName,
+          position: 'top', // Artık position önemli değil
+          money: {
+            paper500: 2,
+            paper100: 2,
+            paper50: 2,
+            paper20: 5,
+            paper10: 5,
+            paper5: 5,
+            coin1: 5
+          },
+          properties: []
+        };
+        
+        gameState.players = gameState.players || {};
+        gameState.players[newPlayerId] = newGamePlayer;
+        gameState.nextId = newPlayerId + 1;
+        
+        console.log(`🎮 ${playerName} oyuna eklendi (ID: ${newPlayerId})`);
+        
+        // Güncellenmiş game state'i tüm odaya gönder
+        io.to(roomId).emit('gameStateUpdated', gameState);
+      }
     }
 
     // playerJoined event'ini tüm odaya gönder (kendisi dahil)
@@ -156,6 +188,8 @@ io.on('connection', (socket) => {
     // Mevcut oyun durumunu gönder
     socket.emit('gameStateUpdated', rooms[roomId].gameState);
     socket.emit('actionLogUpdated', rooms[roomId].actionLog);
+    socket.emit('redoLogUpdated', rooms[roomId].redoLog);
+  });
     socket.emit('redoLogUpdated', rooms[roomId].redoLog);
   });
 

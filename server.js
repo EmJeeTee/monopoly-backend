@@ -191,8 +191,18 @@ io.on('connection', (socket) => {
   // Oyun durumu güncelleme - ESKİ YÖNTEM (Geçici olarak tekrar aktif)
   socket.on('updateGameState', ({ roomId, gameState, action }) => {
     if (rooms[roomId]) {
-      // Tam state'i güncelle (merge yapmadan, gönderilen state authoritative)
-      rooms[roomId].gameState = gameState;
+      // Gelen state ile mevcut state'i merge et
+      const currentState = rooms[roomId].gameState;
+      // Mevcut oyuncuları koru, yeni gelenleri ekle
+      const mergedPlayers = { ...currentState.players };
+      Object.entries(gameState.players || {}).forEach(([id, player]) => {
+        mergedPlayers[id] = player;
+      });
+      rooms[roomId].gameState = {
+        ...currentState,
+        ...gameState,
+        players: mergedPlayers
+      };
       
       // Action varsa log'a ekle
       if (action) {

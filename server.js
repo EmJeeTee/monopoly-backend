@@ -183,13 +183,6 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('redoLogUpdated', rooms[roomId].redoLog);
   });
 
-
-    // Mevcut oyun durumunu gönder
-    socket.emit('gameStateUpdated', rooms[roomId].gameState);
-    socket.emit('actionLogUpdated', rooms[roomId].actionLog);
-    socket.emit('redoLogUpdated', rooms[roomId].redoLog);
-  });
-
   // Oyun durumu güncelleme - ESKİ YÖNTEM (Geçici olarak tekrar aktif)
   socket.on('updateGameState', ({ roomId, gameState, action }) => {
     if (rooms[roomId]) {
@@ -483,8 +476,9 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('statusUpdate', { playerName: name, online })
       })
     }
-  })
-    // Bağlantı kopunca
+  });
+
+  // Bağlantı kopunca
   socket.on('disconnect', () => {
     const roomId = socket.roomId;
     if (roomId && rooms[roomId]) {

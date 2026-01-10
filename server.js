@@ -147,9 +147,14 @@ io.on('connection', (socket) => {
 
       // Game state'e de ekle (otomatik)
       const gameState = rooms[roomId].gameState;
+      // Aynı isimde oyuncu yoksa yeni ID ata
       const gamePlayerExists = Object.values(gameState.players || {}).some(p => p.name === playerName);
       if (!gamePlayerExists) {
-        const newPlayerId = gameState.nextId || 1;
+        // Benzersiz ID bul
+        let newPlayerId = gameState.nextId || 1;
+        while (gameState.players && gameState.players[newPlayerId]) {
+          newPlayerId++;
+        }
         const newGamePlayer = {
           id: newPlayerId,
           name: playerName,

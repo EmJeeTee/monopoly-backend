@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monopoly Backend - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .controls {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .rooms-list {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .rooms-list h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .room-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .room-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .room-info {
+            flex: 1;
+        }
+        
+        .room-id {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .room-details {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .room-details span {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .badge-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .badge-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .badge-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .login-form {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 400px;
+            margin: 100px auto;
+        }
+        
+        .login-form h2 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Form -->
+    <div id="loginSection">
+        <div class="login-form">
+            <h2>🔐 Admin Girişi</h2>
+            <div id="loginError" class="alert alert-danger hidden"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Admin Şifresi:</label>
+                    <input type="password" id="adminPassword" placeholder="Şifre giriniz" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Giriş Yap</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" class="hidden">
+        <div class="container">
+            <div class="header">
+                <h1>🎩 Monopoly Backend Admin</h1>
+                <p>Oda Yönetim Paneli</p>
+            </div>
+
+            <div id="successMessage" class="alert alert-success hidden"></div>
+            <div id="errorMessage" class="alert alert-danger hidden"></div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <h3 id="totalRooms">0</h3>
+                    <p>Toplam Oda</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="totalPlayers">0</h3>
+                    <p>Toplam Oyuncu</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="onlinePlayers">0</h3>
+                    <p>Online Oyuncu</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="loadRooms()">🔄 Yenile</button>
+                <button class="btn btn-danger" onclick="clearAllRooms()">🗑️ Tüm Odaları Sil</button>
+                <button class="btn btn-primary" onclick="logout()">🚪 Çıkış</button>
+            </div>
+
+            <div class="rooms-list">
+                <h2>📋 Odalar</h2>
+                <div id="roomsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let adminToken = localStorage.getItem('adminToken');
+
+        // Check if already logged in
+        if (adminToken) {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('adminPanel').classList.remove('hidden');
+            loadRooms();
+        }
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('adminPassword').value;
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    adminToken = data.token;
+                    localStorage.setItem('adminToken', adminToken);
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('adminPanel').classList.remove('hidden');
+                    loadRooms();
+                } else {
+                    showLoginError(data.error || 'Giriş başarısız');
+                }
+            } catch (error) {
+                showLoginError('Sunucuya bağlanılamadı');
+            }
+        });
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('adminToken');
+            location.reload();
+        }
+
+        // Load rooms
+        async function loadRooms() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/rooms`, {
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                const data = await response.json();
+                displayRooms(data);
+            } catch (error) {
+                showError('Odalar yüklenemedi: ' + error.message);
+            }
+        }
+
+        // Display rooms
+        function displayRooms(data) {
+            document.getElementById('totalRooms').textContent = data.totalRooms;
+            document.getElementById('totalPlayers').textContent = data.totalPlayers;
+            document.getElementById('onlinePlayers').textContent = data.onlinePlayers;
+
+            const roomsList = document.getElementById('roomsList');
+            
+            if (data.rooms.length === 0) {
+                roomsList.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Henüz oda bulunmuyor</p>';
+                return;
+            }
+
+            roomsList.innerHTML = data.rooms.map(room => `
+                <div class="room-card">
+                    <div class="room-info">
+                        <div class="room-id">🏠 ${room.id}</div>
+                        <div class="room-details">
+                            <span>👥 ${room.playerCount} oyuncu (${room.onlineCount} online)</span>
+                            <span>📅 ${new Date(room.createdAt).toLocaleString('tr-TR')}</span>
+                            <span>⏱️ ${getTimeSince(room.createdAt)}</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger" onclick="deleteRoom('${room.id}')">Sil</button>
+                </div>
+            `).join('');
+        }
+
+        // Delete room
+        async function deleteRoom(roomId) {
+            if (!confirm(`${roomId} odasını silmek istediğinizden emin misiniz?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/rooms/${roomId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+
+                if (response.ok) {
+                    showSuccess(`Oda ${roomId} silindi`);
+                    loadRooms();
+                } else {
+                    showError('Oda silinemedi');
+                }
+            } catch (error) {
+                showError('Hata: ' + error.message);
+            }
+        }
+
+        // Clear all rooms
+        async function clearAllRooms() {
+            if (!confirm('TÜM ODALARI SİLMEK İSTEDİĞİNİZDEN EMİN MİSİNİZ?\n\nBu işlem geri alınamaz!')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/rooms/clear-all`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(`${data.deletedCount} oda silindi`);
+                    loadRooms();
+                } else {
+                    showError('Odalar silinemedi');
+                }
+            } catch (error) {
+                showError('Hata: ' + error.message);
+            }
+        }
+
+        // Helper functions
+        function getTimeSince(timestamp) {
+            const seconds = Math.floor((Date.now() - timestamp) / 1000);
+            if (seconds < 60) return `${seconds} saniye önce`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} dakika önce`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} saat önce`;
+            const days = Math.floor(hours / 24);
+            return `${days} gün önce`;
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('successMessage');
+            el.textContent = message;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3000);
+        }
+
+        function showError(message) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = message;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+
+        function showLoginError(message) {
+            const el = document.getElementById('loginError');
+            el.textContent = message;
+            el.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

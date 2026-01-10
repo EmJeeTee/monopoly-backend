@@ -416,7 +416,10 @@ io.on('connection', (socket) => {
       })
       
       // Broadcast status to all players in room
-      io.to(roomId).emit('statusUpdate', { playerStatuses })
+      // Emit status for each player separately
+      Object.entries(playerStatuses).forEach(([name, online]) => {
+        io.to(roomId).emit('statusUpdate', { playerName: name, online })
+      })
     }
   })
     // Bağlantı kopunca

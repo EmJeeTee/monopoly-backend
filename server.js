@@ -238,7 +238,7 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('redoLogUpdated', rooms[roomId].redoLog);
       }
       
-      socket.to(roomId).emit('gameStateUpdated', gameState);
+      io.to(roomId).emit('gameStateUpdated', gameState);
       console.log(`🎮 Oyun durumu güncellendi: ${roomId}`);
     }
   });

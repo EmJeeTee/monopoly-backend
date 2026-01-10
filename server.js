@@ -125,25 +125,36 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Önce room'a join ol (playerJoined event'ini alabilmesi için)
-    socket.join(roomId);
-    socket.roomId = roomId;
-    socket.playerName = playerName;
-
     // Aynı isimde oyuncu varsa güncelle (reconnect durumu)
     const existingPlayer = rooms[roomId].players.find(p => p.name === playerName);
     if (existingPlayer) {
       console.log(`🔄 ${playerName} yeniden bağlanıyor (eski: ${existingPlayer.id}, yeni: ${socket.id})`);
       existingPlayer.id = socket.id; // Socket ID'yi güncelle
       existingPlayer.joinedAt = Date.now(); // Son katılma zamanını güncelle
+    // Önce room'a join ol (playerJoined event'ini alabilmesi için)
+    socket.join(roomId);
+    socket.roomId = roomId;
+    socket.playerName = playerName;
+
+    // Önce room'a join ol (playerJoined event'ini alabilmesi için)
+    socket.join(roomId);
+    socket.roomId = roomId;
+    socket.playerName = playerName;
+
+
     } else {
-      // Yeni oyuncu ekle (lobby'ye)
+      // Yeni oyuncu ekle
       const player = {
         id: socket.id,
         name: playerName,
         joinedAt: Date.now()
       };
       rooms[roomId].players.push(player);
+      
+      io.to(roomId).emit('playerJoined', {
+        player,
+        players: rooms[roomId].players
+      });
       console.log(`👤 ${playerName} masaya katıldı: ${roomId} (${rooms[roomId].players.length} oyuncu)`);
       
       // Game state'e de ekle (otomatik)
@@ -155,7 +166,7 @@ io.on('connection', (socket) => {
         const newGamePlayer = {
           id: newPlayerId,
           name: playerName,
-          position: 'top', // Artık position önemli değil
+          position: 'top',
           money: {
             paper500: 2,
             paper100: 2,
@@ -173,23 +184,14 @@ io.on('connection', (socket) => {
         gameState.nextId = newPlayerId + 1;
         
         console.log(`🎮 ${playerName} oyuna eklendi (ID: ${newPlayerId})`);
-        
-        // Güncellenmiş game state'i tüm odaya gönder
         io.to(roomId).emit('gameStateUpdated', gameState);
       }
     }
 
-    // playerJoined event'ini tüm odaya gönder (kendisi dahil)
-    io.to(roomId).emit('playerJoined', {
-      player: { id: socket.id, name: playerName, joinedAt: Date.now() },
-      players: rooms[roomId].players
-    });
 
     // Mevcut oyun durumunu gönder
     socket.emit('gameStateUpdated', rooms[roomId].gameState);
     socket.emit('actionLogUpdated', rooms[roomId].actionLog);
-    socket.emit('redoLogUpdated', rooms[roomId].redoLog);
-  });
     socket.emit('redoLogUpdated', rooms[roomId].redoLog);
   });
 

@@ -200,9 +200,17 @@ io.on('connection', (socket) => {
     if (rooms[roomId]) {
       // Preserve nextId when updating game state
       // Merge gameState while preserving backend-managed fields
-      const currentNextId = rooms[roomId].gameState.nextId;
+      const currentState = rooms[roomId].gameState;
+      const currentNextId = currentState.nextId;
+      const currentPlayers = currentState.players || {};
+      const incomingPlayers = gameState.players || {};
+      
+      // Merge players: keep all backend players, update with frontend changes
+      const mergedPlayers = { ...currentPlayers, ...incomingPlayers };
+      
       rooms[roomId].gameState = {
         ...gameState,
+        players: mergedPlayers,
         nextId: Math.max(gameState.nextId || 1, currentNextId || 1)
       };
       

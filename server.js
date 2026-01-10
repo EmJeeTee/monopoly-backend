@@ -168,13 +168,13 @@ io.on('connection', (socket) => {
           name: playerName,
           position: 'top',
           money: {
-            paper500: 2,
-            paper100: 2,
-            paper50: 2,
-            paper20: 5,
-            paper10: 5,
-            paper5: 5,
-            coin1: 5
+            5000000: 2,  // 2x 5M
+            1000000: 4,  // 4x 1M
+            500000: 1,   // 1x 500K
+            200000: 1,   // 1x 200K
+            100000: 2,   // 2x 100K
+            50000: 1,    // 1x 50K
+            10000: 5     // 5x 10K
           },
           properties: []
         };

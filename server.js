@@ -198,7 +198,13 @@ io.on('connection', (socket) => {
   // Oyun durumu güncelleme
   socket.on('updateGameState', ({ roomId, gameState, action }) => {
     if (rooms[roomId]) {
-      rooms[roomId].gameState = gameState;
+      // Preserve nextId when updating game state
+      // Merge gameState while preserving backend-managed fields
+      const currentNextId = rooms[roomId].gameState.nextId;
+      rooms[roomId].gameState = {
+        ...gameState,
+        nextId: Math.max(gameState.nextId || 1, currentNextId || 1)
+      };
       
       // Action varsa log'a ekle
       if (action) {

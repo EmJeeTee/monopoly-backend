@@ -512,9 +512,9 @@ io.on('connection', (socket) => {
   });
 
   // İşlem onayı isteme
-  socket.on('requestApproval', ({ roomId, action }) => {
-    const approvalId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+socket.on('requestApproval', ({ roomId, action, approvalId }) => {
+  // Frontend'den gelen approvalId'yi kullan (callback eşleştirmesi için)
+  
     pendingActions[approvalId] = {
       ...action,
       approvals: [],

@@ -34,10 +34,21 @@ const operationQueues = {}; // Her oda için operation queue
 
 // Test endpoint
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Monopoly Backend Running!', 
+  res.json({
+    message: 'Monopoly Backend Running!',
     rooms: Object.keys(rooms).length,
-    activeConnections: io.engine.clientsCount 
+    activeConnections: io.engine.clientsCount
+  });
+});
+
+// Health check endpoint - Keep server alive
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+    rooms: Object.keys(rooms).length,
+    activeConnections: io.engine.clientsCount
   });
 });
 
@@ -289,7 +300,7 @@ io.on('connection', (socket) => {
   console.log('🔌 Yeni bağlantı:', socket.id);
 
   // Join room with reconnection support
-  socket.on('joinRoom', ({ roomId, playerName }) => {
+  socket.on('joinRoom', ({ roomId, playerName, pawnId }) => {
     if (!rooms[roomId]) {
       socket.emit('error', { message: 'Masa bulunamadı' });
       return;
@@ -297,7 +308,7 @@ io.on('connection', (socket) => {
 
     // Check if player exists (reconnection scenario)
     const existingPlayer = rooms[roomId].players.find(p => p.name === playerName);
-    
+
     if (existingPlayer) {
       // RECONNECTION: Update socket ID and mark as online
       console.log('Reconnecting:', playerName, '(old:', existingPlayer.oldSocketId || existingPlayer.id, ', new:', socket.id, ')');
@@ -319,6 +330,7 @@ io.on('connection', (socket) => {
       const player = {
         id: socket.id,
         name: playerName,
+        pawn: pawnId || 'plane',
         joinedAt: Date.now(),
         online: true,
         lastSeen: Date.now()
@@ -330,12 +342,12 @@ io.on('connection', (socket) => {
         players: rooms[roomId].players
       });
 
-      console.log('New player joined:', playerName, '(', roomId, '),', rooms[roomId].players.length, 'players');
+      console.log('New player joined:', playerName, `(${pawnId || 'plane'})`, '(', roomId, '),', rooms[roomId].players.length, 'players');
 
       // Add to game state if doesnt exist
       const gameState = rooms[roomId].gameState;
       const gamePlayerExists = Object.values(gameState.players || {}).some(p => p.name === playerName);
-      
+
       if (!gamePlayerExists) {
         // Find unique player ID
         let newPlayerId = gameState.nextId || 1;
@@ -347,6 +359,8 @@ io.on('connection', (socket) => {
         const newGamePlayer = {
           id: newPlayerId,
           name: playerName,
+          pawn: pawnId || 'plane',
+          boardPosition: 0,
           position: 'top',
           money: {
             5000000: 2,
@@ -362,7 +376,7 @@ io.on('connection', (socket) => {
 
         gameState.players = { ...gameState.players, [newPlayerId]: newGamePlayer };
         gameState.nextId = newPlayerId + 1;
-        console.log('Added to game:', playerName, '(ID:', newPlayerId, ')');
+        console.log('Added to game:', playerName, '(ID:', newPlayerId, ', pawn:', pawnId || 'plane', ')');
       }
     }
 

@@ -253,8 +253,34 @@ app.post('/api/room/:roomId/reset', (req, res) => {
   
   // Tüm oyunculara sıfırlama bilgisini gönder
   io.to(roomId).emit('gameReset', { gameState: room.gameState });
-  
-  console.log(`🔄 Masa sıfırlandı: ${roomId}`);
+  // Mevcut online oyuncuları otomatik olarak oyuna ekle
+  let nextId = 1;
+  room.players.forEach(player => {
+    if (player.online !== false) {
+      const newGamePlayer = {
+        id: nextId,
+        name: player.name,
+        money: {
+          5000000: 2,
+          1000000: 4,
+          500000: 1,
+          200000: 1,
+          100000: 2,
+          50000: 1,
+          10000: 5
+        },
+        properties: []
+      };
+      room.gameState.players[nextId] = newGamePlayer;
+      nextId++;
+    }
+  });
+  room.gameState.nextId = nextId;
+  // Tüm oyunculara sıfırlama bilgisini gönder
+  io.to(roomId).emit('gameReset', { gameState: room.gameState });
+  io.to(roomId).emit('actionLogUpdated', room.actionLog);
+  io.to(roomId).emit('redoLogUpdated', room.redoLog);
+  console.log(`🔄 Masa sıfırlandı: ${roomId} - ${Object.keys(room.gameState.players).length} oyuncu otomatik eklendi`);
   res.json({ success: true, gameState: room.gameState });
 });
 
@@ -349,6 +375,17 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('gameStateUpdated', rooms[roomId].gameState);
     io.to(roomId).emit('actionLogUpdated', rooms[roomId].actionLog);
     io.to(roomId).emit('redoLogUpdated', rooms[roomId].redoLog);
+     
+    // Send current online statuses of all players to the joining player
+    const now = Date.now();
+    const playerStatuses = {};
+    rooms[roomId].players.forEach(p => {
+      playerStatuses[p.name] = (now - (p.lastSeen || p.joinedAt)) < 10000 && p.online !== false;
+    });
+    Object.entries(playerStatuses).forEach(([name, online]) => {
+      socket.emit('statusUpdate', { playerName: name, online });
+    });
+    console.log(`📊 Sent player statuses to ${playerName}:`, playerStatuses);
   });
 
   // Oyun durumu güncelleme - Queue sistemi ile
@@ -512,7 +549,7 @@ io.on('connection', (socket) => {
   });
 
   // İşlem onayı isteme
-socket.on('requestApproval', ({ roomId, action, approvalId }) => {
+  socket.on('requestApproval', ({ roomId, action, approvalId }) => {  // ✅ approvalId parametresi ekle
   // Frontend'den gelen approvalId'yi kullan (callback eşleştirmesi için)
   
     pendingActions[approvalId] = {
